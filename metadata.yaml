@@ -1,0 +1,32 @@
+project:
+  name: Startup Pitch Deck Evaluation
+  task: Task 2 – ScaleDux AI Internship
+  description: |
+    This project evaluates startup pitch decks using NLP and scores them based on clarity, traction, market potential, and other factors.
+
+author:
+  name: Sushant Yadav
+  email: sushantyadav77963@gmail.com
+  linkedin: https://www.linkedin.com/in/sushant-yadav-6a65b3214
+  github: https://github.com/Sush77963
+
+data:
+  input_folder: data/
+  files:
+    - Pitch-Example-Air-BnB-PDF.pdf
+    - uber-pitch-deck.pdf
+    - doordash-pitch-deck.pdf
+    - FACEBOOK.pdf
+    - 6737d05825e11f73f6d5a289_*.pdf
+
+outputs:
+  text_files: outputs/*.txt
+  score_file: outputs/scores.csv
+  chart: outputs/bar_chart_scores.png
+
+dependencies_file: requirements.txt
+scripts:
+  - extract_text.py
+  - score_pitch_decks.py
+  - visualize_scores.py
+
