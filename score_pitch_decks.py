@@ -1,51 +1,60 @@
 import os
 import pandas as pd
+import spacy
+from textblob import TextBlob
 
-# Folder with extracted text files
+nlp = spacy.load("en_core_web_sm")
+
 input_folder = "outputs"
+output_file = "outputs/score_table_nlp.csv"
 
-# Keywords for each metric
-score_keywords = {
-    "Problem Clarity": ["problem", "pain", "struggle", "issue", "gap"],
-    "Market Potential": ["market", "TAM", "SAM", "SOM", "opportunity", "billion"],
-    "Traction": ["users", "customers", "revenue", "growth", "downloads", "sales"],
-    "Team Strength": ["team", "founder", "co-founder", "experience", "background"],
-    "Business Model": ["model", "revenue", "pricing", "plan", "monetize", "subscription"],
-    "Confidence/Tone": ["scale", "vision", "global", "disrupt", "leader", "billion"]
-}
+# Scoring functions
+def score_problem_clarity(text):
+    return min(max((len(text.split()) / 100), 0), 10)
 
-# Score weight per category
-max_score = 10
+def score_market_potential(text):
+    keywords = ["TAM", "market size", "billion", "million", "opportunity"]
+    count = sum(text.lower().count(k.lower()) for k in keywords)
+    return min(count, 10)
 
-# Function to score based on keyword frequency
-def score_text(text, keywords):
-    score = 0
-    for word in keywords:
-        if word.lower() in text.lower():
-            score += 1
-    return min(score, max_score)
+def score_traction(text):
+    count = sum(1 for word in text.split() if "%" in word or "users" in word.lower() or "growth" in word.lower())
+    return min(count, 10)
 
-# Score all files
+def score_team_strength(text):
+    doc = nlp(text)
+    people = [ent.text for ent in doc.ents if ent.label_ == "PERSON"]
+    return min(len(people), 10)
+
+def score_business_model(text):
+    keywords = ["SaaS", "subscription", "transaction", "licensing", "ads", "freemium"]
+    return min(sum(text.lower().count(k.lower()) for k in keywords), 10)
+
+def score_confidence_tone(text):
+    sentiment = TextBlob(text).sentiment
+    confidence = ((sentiment.polarity + (1 - sentiment.subjectivity)) / 2) * 10
+    return round(confidence, 2)
+
+# Process each deck
 results = []
-for filename in os.listdir(input_folder):
-    if filename.endswith(".txt"):
-        filepath = os.path.join(input_folder, filename)
-        with open(filepath, "r", encoding="utf-8") as f:
+for file in os.listdir(input_folder):
+    if file.endswith(".txt"):
+        with open(os.path.join(input_folder, file), "r", encoding="utf-8") as f:
             text = f.read()
-
-        deck_name = filename.replace(".txt", "")
-        scores = {"Startup": deck_name}
-
-        # Score each metric
-        for metric, keywords in score_keywords.items():
-            scores[metric] = score_text(text, keywords)
-
-        # Total score (out of 60)
-        scores["Total Score"] = sum(scores[metric] for metric in score_keywords)
-        results.append(scores)
+        
+        row = {
+            "Startup": file.replace(".txt", ""),
+            "Problem Clarity": score_problem_clarity(text),
+            "Market Potential": score_market_potential(text),
+            "Traction": score_traction(text),
+            "Team Strength": score_team_strength(text),
+            "Business Model": score_business_model(text),
+            "Confidence / Tone": score_confidence_tone(text)
+        }
+        row["Total Score"] = round(sum(row[k] for k in row if k != "Startup"), 2)
+        results.append(row)
 
 # Save to CSV
-df = pd.DataFrame(results)
-df = df.sort_values(by="Total Score", ascending=False)
-df.to_csv("outputs/scores.csv", index=False)
-print("✅ Scores saved to outputs/scores.csv")
+df = pd.DataFrame(results).sort_values("Total Score", ascending=False)
+df.to_csv(output_file, index=False)
+print("✅ NLP-based scoring complete. Results saved to:", output_file)
